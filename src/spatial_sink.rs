@@ -71,7 +71,7 @@ impl SpatialSink {
             pos_lock.left_ear,
             pos_lock.right_ear,
         )
-        .periodic_access(Duration::from_millis(10), move |i| {
+        .periodic_access(Duration::from_millis(2), move |i| {
             let pos = positions.lock().unwrap();
             i.set_positions(pos.emitter_position, pos.left_ear, pos.right_ear);
         });

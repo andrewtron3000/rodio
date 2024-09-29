@@ -5,10 +5,10 @@ use std::time::Duration;
 use rodio::Source;
 
 fn main() {
-    let iter_duration = Duration::from_secs(5);
-    let iter_distance = 5.;
+    let iter_duration = Duration::from_secs(2);
+    let iter_distance = 10.;
 
-    let refresh_duration = Duration::from_millis(10);
+    let refresh_duration = Duration::from_millis(120);
 
     let num_steps = iter_duration.as_secs_f32() / refresh_duration.as_secs_f32();
     let step_distance = iter_distance / num_steps;
@@ -22,7 +22,8 @@ fn main() {
     let mut positions = ([0., 0., 0.], [-1., 0., 0.], [1., 0., 0.]);
     let sink = rodio::SpatialSink::try_new(&handle, positions.0, positions.1, positions.2).unwrap();
 
-    let file = std::fs::File::open("assets/music.ogg").unwrap();
+//    let file = std::fs::File::open("assets/music.ogg").unwrap();
+    let file = std::fs::File::open("assets/beep.wav").unwrap();
     let source = rodio::Decoder::new(BufReader::new(file))
         .unwrap()
         .repeat_infinite()

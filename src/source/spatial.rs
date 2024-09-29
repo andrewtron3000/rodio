@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use interpolation;
+
 use crate::source::ChannelVolume;
 use crate::{Sample, Source};
 
@@ -65,10 +67,22 @@ where
             (((right_dist - left_dist) / max_diff + 1.0) / 4.0 + 0.5).min(1.0);
         let left_dist_modifier = (1.0 / left_dist_sq).min(1.0);
         let right_dist_modifier = (1.0 / right_dist_sq).min(1.0);
+
+        let left_target = left_diff_modifier * left_dist_modifier;
+        let right_target = right_diff_modifier * right_dist_modifier;
+
+        let left_vol = self.input.get_volume(0);
+        let right_vol = self.input.get_volume(1);
+
+        // lerp to the new target volume.  Lerping helps to smooth out 
+        // volume changes to avoid high frequency clicks during position changes.
+        let new_left_vol = interpolation::lerp(&left_vol, &left_target, &0.05);
+        let new_right_vol = interpolation::lerp(&right_vol, &right_target, &0.05);
+
         self.input
-            .set_volume(0, left_diff_modifier * left_dist_modifier);
+            .set_volume(0, new_left_vol);
         self.input
-            .set_volume(1, right_diff_modifier * right_dist_modifier);
+            .set_volume(1, new_right_vol);
     }
 }
 

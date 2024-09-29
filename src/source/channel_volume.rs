@@ -57,6 +57,12 @@ where
         self.channel_volumes[channel] = volume;
     }
 
+    /// Gets the volume for a given channel number. Will panic if channel number
+    /// is invalid.
+    pub fn get_volume(&self, channel: usize) -> f32 {
+        self.channel_volumes[channel]
+    }
+
     /// Returns a reference to the inner source.
     #[inline]
     pub fn inner(&self) -> &I {
