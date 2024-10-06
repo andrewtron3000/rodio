@@ -16,6 +16,9 @@ where
     I: Source,
     I::Item: Sample,
 {
+    lerp_position: f32,
+    left_start: f32,
+    right_start: f32,
     input: ChannelVolume<I>,
 }
 
@@ -43,10 +46,19 @@ where
         I::Item: Sample,
     {
         let mut ret = Spatial {
+            lerp_position: 0.0,
+            left_start: 0.0,
+            right_start: 0.0,
             input: ChannelVolume::new(input, vec![0.0, 0.0]),
         };
         ret.set_positions(emitter_position, left_ear, right_ear);
         ret
+    }
+
+    pub fn reset_lerp(&mut self) {
+        self.lerp_position = 0.0;
+        self.left_start = self.input.get_volume(0);
+        self.right_start = self.input.get_volume(1);
     }
 
     /// Sets the position of the emitter and ears in the 3D world.
@@ -65,20 +77,20 @@ where
 
         let left_diff_modifier =  (((left_dist - right_dist) / max_diff + 1.0) / 4.0 + 0.5).min(1.0);
         let right_diff_modifier = (((right_dist - left_dist) / max_diff + 1.0) / 4.0 + 0.5).min(1.0);
+
         // Use a falloff of loudness that is inverse of distance instead of inverse of disttance squared
-        let left_dist_modifier = (1.0 / left_dist).min(1.0);
-        let right_dist_modifier = (1.0 / right_dist).min(1.0);
+        let left_dist_modifier = (1.0 / left_dist_sq).min(1.0);
+        let right_dist_modifier = (1.0 / right_dist_sq).min(1.0);
 
         let left_target = left_diff_modifier * left_dist_modifier;
         let right_target = right_diff_modifier * right_dist_modifier;
 
-        let left_vol = self.input.get_volume(0);
-        let right_vol = self.input.get_volume(1);
-
         // lerp to the new target volume.  Lerping helps to smooth out 
         // volume changes to avoid high frequency clicks during position changes.
-        let new_left_vol = interpolation::lerp(&left_vol, &left_target, &0.05);
-        let new_right_vol = interpolation::lerp(&right_vol, &right_target, &0.05);
+        let new_left_vol = interpolation::lerp(&self.left_start, &left_target, &self.lerp_position);
+        let new_right_vol = interpolation::lerp(&self.right_start, &right_target, &self.lerp_position);
+        self.lerp_position = self.lerp_position + 0.125;
+        self.lerp_position = self.lerp_position.clamp(0.0, 1.0);
 
         self.input
             .set_volume(0, new_left_vol);

@@ -8,12 +8,15 @@ use crate::source::{SeekError, Spatial};
 use crate::stream::{OutputStreamHandle, PlayError};
 use crate::{Sample, Sink, Source};
 
+use crossbeam::atomic::AtomicCell;
+
 /// A sink that allows changing the position of the source and the listeners
 /// ears while playing. The sources played are then transformed to give a simple
 /// spatial effect. See [`Spatial`] for details.
 pub struct SpatialSink {
     sink: Sink,
     positions: Arc<Mutex<SoundPositions>>,
+    positions_dirty: Arc<AtomicCell<bool>>,
 }
 
 struct SoundPositions {
@@ -30,6 +33,10 @@ impl SpatialSink {
         left_ear: [f32; 3],
         right_ear: [f32; 3],
     ) -> Result<SpatialSink, PlayError> {
+
+        // Verify that we can get lock free capability for the positions_dirty flag.
+        assert_eq!(AtomicCell::<bool>::is_lock_free(), true);
+
         Ok(SpatialSink {
             sink: Sink::try_new(stream)?,
             positions: Arc::new(Mutex::new(SoundPositions {
@@ -37,22 +44,26 @@ impl SpatialSink {
                 left_ear,
                 right_ear,
             })),
+            positions_dirty: Arc::new(AtomicCell::new(false)),
         })
     }
 
     /// Sets the position of the sound emitter in 3 dimensional space.
     pub fn set_emitter_position(&self, pos: [f32; 3]) {
         self.positions.lock().unwrap().emitter_position = pos;
+        self.positions_dirty.store(true);
     }
 
     /// Sets the position of the left ear in 3 dimensional space.
     pub fn set_left_ear_position(&self, pos: [f32; 3]) {
         self.positions.lock().unwrap().left_ear = pos;
+        self.positions_dirty.store(true);
     }
 
     /// Sets the position of the right ear in 3 dimensional space.
     pub fn set_right_ear_position(&self, pos: [f32; 3]) {
         self.positions.lock().unwrap().right_ear = pos;
+        self.positions_dirty.store(true);
     }
 
     /// Appends a sound to the queue of sounds to play.
@@ -64,16 +75,32 @@ impl SpatialSink {
         S::Item: Sample + Send,
     {
         let positions = self.positions.clone();
+        let dirty_flag = self.positions_dirty.clone();
         let pos_lock = self.positions.lock().unwrap();
+
+        let mut current_req = SoundPositions {
+            emitter_position: pos_lock.emitter_position,
+            left_ear: pos_lock.left_ear,
+            right_ear: pos_lock.right_ear
+        };
+
         let source = Spatial::new(
             source,
             pos_lock.emitter_position,
             pos_lock.left_ear,
             pos_lock.right_ear,
         )
-        .periodic_access(Duration::from_millis(2), move |i| {
-            let pos = positions.lock().unwrap();
-            i.set_positions(pos.emitter_position, pos.left_ear, pos.right_ear);
+        .periodic_access(Duration::from_micros(2082), move |i| {
+            let dirty = dirty_flag.load();
+            if dirty {
+                let pos = positions.lock().unwrap();
+                current_req.emitter_position = pos.emitter_position;
+                current_req.left_ear = pos.left_ear;
+                current_req.right_ear = pos.right_ear;
+                i.reset_lerp();
+                dirty_flag.store(false);
+            }
+            i.set_positions(current_req.emitter_position, current_req.left_ear, current_req.right_ear);
         });
         self.sink.append(source);
     }
