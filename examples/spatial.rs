@@ -8,7 +8,7 @@ fn main() {
     let iter_duration = Duration::from_secs(2);
     let iter_distance = 10.;
 
-    let refresh_duration = Duration::from_millis(120);
+    let refresh_duration = Duration::from_micros(16667);
 
     let num_steps = iter_duration.as_secs_f32() / refresh_duration.as_secs_f32();
     let step_distance = iter_distance / num_steps;
