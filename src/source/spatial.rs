@@ -78,7 +78,6 @@ where
         let left_diff_modifier =  (((left_dist - right_dist) / max_diff + 1.0) / 4.0 + 0.5).min(1.0);
         let right_diff_modifier = (((right_dist - left_dist) / max_diff + 1.0) / 4.0 + 0.5).min(1.0);
 
-        // Use a falloff of loudness that is inverse of distance instead of inverse of disttance squared
         let left_dist_modifier = (1.0 / left_dist_sq).min(1.0);
         let right_dist_modifier = (1.0 / right_dist_sq).min(1.0);
 
